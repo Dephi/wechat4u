@@ -4,7 +4,7 @@ const Wechat = require('./src/wechat.js')
 const qrcode = require('qrcode-terminal')
 const fs = require('fs')
 const request = require('request')
-
+const cheerio = require('cheerio')
 let bot
 /**
  * 尝试获取本地登录数据，免扫码
@@ -153,18 +153,6 @@ bot.on('login', () => {
     .catch(err => {
       bot.emit('error', err)
     })
-
-  /**
-   * 发送撤回消息请求
-   */
-  bot.sendMsg('测试撤回', ToUserName)
-     .then(res => {
-       // 需要取得待撤回消息的MsgID
-       return bot.revokeMsg(res.MsgID, ToUserName)
-     })
-     .catch(err => {
-       console.log(err)
-     })
 })
 /**
  * 如何处理会话消息
@@ -186,7 +174,28 @@ bot.on('message', msg => {
       /**
        * 文本消息
        */
-      console.log(msg.Content)
+      if (bot.contacts[msg.FromUserName].getDisplayName() === '[群] 王者荣耀丶花间一壶酒战队群') {
+        if (msg.Content.match(/第\d条：/)) {
+          let length = msg.Content.length
+          let chengyuStart = msg.Content[length - 3]
+          console.log(`成语首字：${chengyuStart}`)
+          let searchParma = (encodeURI(encodeURI(chengyuStart)) + encodeURI('[][][]')).toLowerCase()
+          request(`http://miaoqiyuan.cn/cyjl/like_${searchParma}.html`, function (error, response, body) {
+            if (!error && response.statusCode === 200) {
+              // console.log(body) // 打印返回
+              var $ = cheerio.load(body)
+              var result = $('.iBody a') && $('.iBody a').length > 0 ? $('.iBody a')[0].children[0].data : ''
+              if (result) {
+                console.log(`找到结果${result}`)
+                bot.sendMsg(result, msg.FromUserName)
+                  .catch(err => {
+                    bot.emit('error', err)
+                  })
+              }
+            }
+          })
+        }
+      }
       break
     case bot.CONF.MSGTYPE_IMAGE:
       /**
